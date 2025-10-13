@@ -2,7 +2,7 @@ import { PrismaClient, TipoUsuario } from "@prisma/client"
 import { Router } from "express"
 import bcrypt from 'bcrypt'
 import { z } from 'zod'
-import { verificaFuncionario } from "../middlewares/verificaFuncionario.ts"
+import { verificaFuncionario } from "../middlewares/verificaFuncionario"
 
 const prisma = new PrismaClient()
 const router = Router()
