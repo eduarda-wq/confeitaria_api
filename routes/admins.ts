@@ -79,7 +79,7 @@ function validaSenha(senha: string) {
   return mensa
 }
 
-router.post("/", verificaToken, async (req, res) => {
+router.post("/", async (req, res) => {
 
   const valida = adminSchema.safeParse(req.body)
   if (!valida.success) {
