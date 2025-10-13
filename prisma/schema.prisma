@@ -14,24 +14,28 @@ datasource db {
 }
 
 model Categoria {
-  id    Int     @id @default(autoincrement())
-  nome  String  @db.VarChar(30)
+  id    Int    @id @default(autoincrement())
+  nome  String @db.VarChar(30)
   bolos Bolo[]
+
   @@map("categorias")
 }
 
 model Bolo {
-  id           Int      @id @default(autoincrement())
-  nome         String   @db.VarChar(50)
-  preco        Decimal  @db.Decimal(10, 2)
-  foto         String
-  ingredientes String   @db.VarChar(255)
-  destaque     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  categoria    Categoria @relation(fields: [categoriaId], references: [id])
-  categoriaId  Int
-  pedidos      Pedido[]
+  id               Int       @id @default(autoincrement())
+  nome             String    @db.VarChar(50)
+  preco            Decimal   @db.Decimal(10, 2)
+  foto             String
+  ingredientes     String    @db.VarChar(255)
+  destaque         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  categoria        Categoria @relation(fields: [categoriaId], references: [id])
+  categoriaId      Int
+  pedidos          Pedido[]
+  criadoPorAdminId String?   @db.VarChar(36)
+  criadoPorAdmin   Admin?    @relation("CriadoPorAdmin", fields: [criadoPorAdminId], references: [id])
+
   @@map("bolos")
 }
 
@@ -44,21 +48,41 @@ model Usuario {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   pedidos   Pedido[]
+
   @@map("usuarios")
 }
 
+model Admin {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  nome      String   @db.VarChar(60)
+  email     String   @unique @db.VarChar(40)
+  senha     String   @db.VarChar(60)
+  nivel     Int      @default(1) @db.SmallInt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bolos_criados Bolo[] @relation("CriadoPorAdmin")
+
+  pedidos_gerenciados Pedido[] @relation("GerenciadoPorAdmin")
+
+  @@map("admins")
+}
+
 model Pedido {
-  id          Int          @id @default(autoincrement())
-  usuario     Usuario      @relation(fields: [usuarioId], references: [id])
-  usuarioId   String       @db.VarChar(36)
-  bolo        Bolo         @relation(fields: [boloId], references: [id])
-  boloId      Int
-  quantidade  Int          @default(1)
-  valor_total Decimal      @db.Decimal(10, 2)
-  observacoes String?      @db.VarChar(255)
-  status      StatusPedido @default(PENDENTE)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                   Int          @id @default(autoincrement())
+  usuario              Usuario      @relation(fields: [usuarioId], references: [id])
+  usuarioId            String       @db.VarChar(36)
+  bolo                 Bolo         @relation(fields: [boloId], references: [id])
+  boloId               Int
+  quantidade           Int          @default(1)
+  valor_total          Decimal      @db.Decimal(10, 2)
+  observacoes          String?      @db.VarChar(255)
+  status               StatusPedido @default(PENDENTE)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  gerenciadoPorAdminId String?      @db.VarChar(36)
+  gerenciadoPorAdmin   Admin?       @relation("GerenciadoPorAdmin", fields: [gerenciadoPorAdminId], references: [id])
+
   @@map("pedidos")
 }
 
