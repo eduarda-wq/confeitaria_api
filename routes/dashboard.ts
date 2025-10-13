@@ -1,31 +1,28 @@
-import { PrismaClient, StatusPedido } from "@prisma/client"
+import { PrismaClient } from "@prisma/client"
 import { Router } from "express"
 
 const prisma = new PrismaClient()
 const router = Router()
 
-// Rota para obter estatísticas gerais da loja
-router.get("/estatisticas", async (req, res) => {
+router.get("/gerais", async (req, res) => {
   try {
-    const usuarios = await prisma.usuario.count()
+    const clientes = await prisma.cliente.count()
     const bolos = await prisma.bolo.count()
     const pedidos = await prisma.pedido.count()
-    res.status(200).json({ usuarios, bolos, pedidos })
+    res.status(200).json({ clientes, bolos, pedidos })
   } catch (error) {
     res.status(400).json(error)
   }
 })
 
-// Type para a contagem de bolos por categoria
-type CategoriaComContagem = {
+type CategoriaGroupByNome = {
   nome: string
   _count: {
     bolos: number
   }
 }
 
-// Rota para obter a quantidade de bolos por categoria (para gráfico)
-router.get("/bolosPorCategoria", async (req, res) => {
+router.get("/bolosCategoria", async (req, res) => {
   try {
     const categorias = await prisma.categoria.findMany({
       select: {
@@ -36,42 +33,40 @@ router.get("/bolosPorCategoria", async (req, res) => {
       }
     })
 
-    const resultado = categorias
-      .filter((item: CategoriaComContagem) => item._count.bolos > 0)
-      .map((item: CategoriaComContagem) => ({
-        categoria: item.nome,
-        num: item._count.bolos
-      }))
-    res.status(200).json(resultado)
+    const categorias2 = categorias
+        .filter((item: CategoriaGroupByNome) => item._count.bolos > 0)
+        .map((item: CategoriaGroupByNome) => ({
+            categoria: item.nome,
+            num: item._count.bolos
+        }))
+    res.status(200).json(categorias2)
   } catch (error) {
     res.status(400).json(error)
   }
 })
 
-// Type para a contagem de pedidos por status
-type PedidoGroupByStatus = {
-  status: StatusPedido
+type ClienteGroupByCidade = {
+  cidade: string
   _count: {
-    status: number
+    cidade: number
   }
 }
 
-// Rota para obter a quantidade de pedidos por status (para gráfico)
-router.get("/pedidosPorStatus", async (req, res) => {
+router.get("/clientesCidade", async (req, res) => {
   try {
-    const pedidos = await prisma.pedido.groupBy({
-      by: ['status'],
+    const clientes = await prisma.cliente.groupBy({
+      by: ['cidade'],
       _count: {
-        status: true,
+        cidade: true,
       },
     })
 
-    const resultado = pedidos.map((pedido: PedidoGroupByStatus) => ({
-      status: pedido.status,
-      num: pedido._count.status
+    const clientes2 = clientes.map((cliente: ClienteGroupByCidade) => ({
+      cidade: cliente.cidade,
+      num: cliente._count.cidade
     }))
 
-    res.status(200).json(resultado)
+    res.status(200).json(clientes2)
   } catch (error) {
     res.status(400).json(error)
   }

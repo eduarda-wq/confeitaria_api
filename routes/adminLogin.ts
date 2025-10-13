@@ -6,52 +6,58 @@ import bcrypt from 'bcrypt'
 const prisma = new PrismaClient()
 const router = Router()
 
-// Rota de login para funcionários
 router.post("/", async (req, res) => {
   const { email, senha } = req.body
 
+  // em termos de segurança, o recomendado é exibir uma mensagem padrão
+  // a fim de evitar de dar "dicas" sobre o processo de login para hackers
   const mensaPadrao = "Login ou senha incorretos"
 
   if (!email || !senha) {
+    // res.status(400).json({ erro: "Informe e-mail e senha do usuário" })
     res.status(400).json({ erro: mensaPadrao })
     return
   }
 
   try {
-    // Procura por um usuário que seja do tipo FUNCIONARIO
-    const funcionario = await prisma.usuario.findFirst({
-      where: {
-        email,
-        tipo: 'FUNCIONARIO'
-      }
+    const admin = await prisma.admin.findFirst({
+      where: { email }
     })
 
-    if (funcionario == null) {
+    if (admin == null) {
+      // res.status(400).json({ erro: "E-mail inválido" })
       res.status(400).json({ erro: mensaPadrao })
       return
     }
 
-    // Se o e-mail existe, faz-se a comparação da senha
-    if (bcrypt.compareSync(senha, funcionario.senha)) {
-      // Se a senha confere, gera e retorna o token
+    // se o e-mail existe, faz-se a comparação dos hashs
+    if (bcrypt.compareSync(senha, admin.senha)) {
+      // se confere, gera e retorna o token
       const token = jwt.sign({
-        usuarioLogadoId: funcionario.id,
-        usuarioLogadoNome: funcionario.nome,
-        usuarioLogadoTipo: funcionario.tipo // Adiciona o tipo ao token
+        adminLogadoId: admin.id,
+        adminLogadoNome: admin.nome,
+        adminLogadoNivel: admin.nivel
       },
         process.env.JWT_KEY as string,
         { expiresIn: "1h" }
       )
 
       res.status(200).json({
-        id: funcionario.id,
-        nome: funcionario.nome,
-        email: funcionario.email,
-        tipo: funcionario.tipo,
+        id: admin.id,
+        nome: admin.nome,
+        email: admin.email,
+        nivel: admin.nivel,
         token
       })
     } else {
-      // Se a senha estiver incorreta, retorna a mensagem padrão
+      const descricao = "Tentativa de acesso ao sistema"
+      const complemento = "Admin: " + admin.id + " - " + admin.nome
+
+      // registra um log de erro de senha
+      const log = await prisma.log.create({
+        data: { descricao, complemento, adminId: admin.id }
+      })
+
       res.status(400).json({ erro: mensaPadrao })
     }
   } catch (error) {

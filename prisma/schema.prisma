@@ -9,91 +9,106 @@ generator client {
 }
 
 datasource db {
-  provider = "postgres"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Categoria {
-  id    Int    @id @default(autoincrement())
-  nome  String @db.VarChar(30)
-  bolos Bolo[]
-
+  id     Int    @id @default(autoincrement())
+  nome   String @db.VarChar(30)
+  bolos  Bolo[]
   @@map("categorias")
 }
 
 model Bolo {
-  id               Int       @id @default(autoincrement())
-  nome             String    @db.VarChar(50)
-  preco            Decimal   @db.Decimal(10, 2)
-  foto             String
-  ingredientes     String    @db.VarChar(255)
-  destaque         Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  categoria        Categoria @relation(fields: [categoriaId], references: [id])
-  categoriaId      Int
-  pedidos          Pedido[]
-  criadoPorAdminId String?   @db.VarChar(36)
-  criadoPorAdmin   Admin?    @relation("CriadoPorAdmin", fields: [criadoPorAdminId], references: [id])
-
+  id          Int       @id @default(autoincrement())
+  nome        String    @db.VarChar(50)
+  descricao   String    @db.VarChar(255)
+  foto        String
+  preco       Decimal   @db.Decimal(10, 2)
+  peso        Decimal   @db.Decimal(6, 3)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt()
+  destaque    Boolean   @default(true)
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+  categoriaId Int
+  pedidos     Pedido[]
+  admin       Admin?    @relation(fields: [adminId], references: [id])
+  adminId     String?   @db.VarChar(36)
+  ativo       Boolean   @default(true)
   @@map("bolos")
 }
 
-model Usuario {
-  id        String      @id @default(uuid()) @db.VarChar(36)
-  nome      String      @db.VarChar(60)
-  email     String      @unique @db.VarChar(40)
-  senha     String      @db.VarChar(60)
-  tipo      TipoUsuario @default(CLIENTE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  pedidos   Pedido[]
-
-  @@map("usuarios")
-}
-
-model Admin {
-  id        String   @id @default(uuid()) @db.VarChar(36)
+model Cliente {
+  id        String   @db.VarChar(36) @id @default(uuid())
   nome      String   @db.VarChar(60)
-  email     String   @unique @db.VarChar(40)
+  email     String   @db.VarChar(40)
   senha     String   @db.VarChar(60)
-  nivel     Int      @default(1) @db.SmallInt
+  cidade    String   @db.VarChar(30)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  pedidos   Pedido[]
+  @@map("clientes")
+}
 
-  bolos_criados Bolo[] @relation("CriadoPorAdmin")
-
-  pedidos_gerenciados Pedido[] @relation("GerenciadoPorAdmin")
-
-  @@map("admins")
+model Funcionario {
+  id        String   @db.VarChar(36) @id @default(uuid())
+  nome      String   @db.VarChar(60)
+  email     String   @db.VarChar(40)
+  senha     String   @db.VarChar(60)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pedidos   Pedido[]
+  @@map("funcionarios")
 }
 
 model Pedido {
-  id                   Int          @id @default(autoincrement())
-  usuario              Usuario      @relation(fields: [usuarioId], references: [id])
-  usuarioId            String       @db.VarChar(36)
-  bolo                 Bolo         @relation(fields: [boloId], references: [id])
-  boloId               Int
-  quantidade           Int          @default(1)
-  valor_total          Decimal      @db.Decimal(10, 2)
-  observacoes          String?      @db.VarChar(255)
-  status               StatusPedido @default(PENDENTE)
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-  gerenciadoPorAdminId String?      @db.VarChar(36)
-  gerenciadoPorAdmin   Admin?       @relation("GerenciadoPorAdmin", fields: [gerenciadoPorAdminId], references: [id])
-
+  id            Int          @id @default(autoincrement())
+  cliente       Cliente      @relation(fields: [clienteId], references: [id])
+  clienteId     String       @db.VarChar(36)
+  bolo          Bolo         @relation(fields: [boloId], references: [id])
+  boloId        Int
+  quantidade    Int
+  observacao    String?      @db.VarChar(255)
+  dataEntrega   DateTime
+  status        StatusPedido @default(PENDENTE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id])
+  funcionarioId String?      @db.VarChar(36)
+  admin         Admin?       @relation(fields: [adminId], references: [id])
+  adminId       String?      @db.VarChar(36)
   @@map("pedidos")
 }
 
-enum TipoUsuario {
-  CLIENTE
-  FUNCIONARIO
+model Admin {
+  id        String   @db.VarChar(36) @id @default(uuid())
+  nome      String   @db.VarChar(60)
+  email     String   @db.VarChar(40)
+  senha     String   @db.VarChar(60)
+  nivel     Int      @db.SmallInt @default(2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bolos     Bolo[]
+  pedidos   Pedido[]
+  logs      Log[]
+  @@map("admins")
+}
+
+model Log {
+  id          Int      @id @default(autoincrement())
+  admin       Admin    @relation(fields: [adminId], references: [id])
+  adminId     String   @db.VarChar(36)
+  descricao   String   @db.VarChar(60)
+  complemento String   @db.VarChar(200)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@map("logs")
 }
 
 enum StatusPedido {
   PENDENTE
-  EM_PREPARO
+  EM_PRODUCAO
   CONCLUIDO
   ENTREGUE
   CANCELADO

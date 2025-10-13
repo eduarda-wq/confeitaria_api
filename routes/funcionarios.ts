@@ -1,101 +1,117 @@
-import { PrismaClient, StatusPedido } from "@prisma/client"
-import { Router, Request, Response, NextFunction } from "express"
-import jwt from 'jsonwebtoken'
+import { PrismaClient } from "@prisma/client"
+import { Router } from "express"
+import bcrypt from 'bcrypt'
+import { z } from 'zod'
 
 const prisma = new PrismaClient()
 const router = Router()
 
-// Interface para definir a estrutura do payload do token
-interface TokenPayload {
-  usuarioLogadoId: string;
-  usuarioLogadoNome: string;
-  usuarioLogadoTipo: 'CLIENTE' | 'FUNCIONARIO';
-}
+const funcionarioSchema = z.object({
+  nome: z.string().min(10, {
+    message: "Nome do funcionário deve possuir, no mínimo, 10 caracteres"
+  }),
+  email: z.string().email({message: "Informe um e-mail válido"}),
+  senha: z.string(),
+})
 
-// Middleware de verificação de funcionário
-const verificaFuncionario = (req: Request, res: Response, next: NextFunction) => {
-  const { authorization } = req.headers
-
-  if (!authorization) {
-    return res.status(401).json({ erro: "Token não fornecido" })
-  }
-
-  // Separa o "Bearer" do token
-  const [, token] = authorization.split(" ")
-
+router.get("/", async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_KEY as string)
-    const { usuarioLogadoTipo } = decoded as TokenPayload
-
-    // Se o tipo do usuário no token não for FUNCIONARIO, nega o acesso
-    if (usuarioLogadoTipo !== 'FUNCIONARIO') {
-      return res.status(403).json({ erro: "Acesso negado: rota exclusiva para funcionários." })
-    }
-
-    // Se for funcionário, permite que a requisição continue
-    return next()
-
+    const funcionarios = await prisma.funcionario.findMany()
+    res.status(200).json(funcionarios)
   } catch (error) {
-    return res.status(401).json({ erro: "Token inválido ou expirado" })
-  }
-}
-
-// O middleware é aplicado a todas as rotas definidas neste arquivo
-router.use(verificaFuncionario)
-
-// Rota para funcionário listar TODOS os pedidos de todos os clientes
-router.get('/pedidos', async (req, res) => {
-  try {
-    const pedidos = await prisma.pedido.findMany({
-      include: {
-        usuario: { select: { nome: true } },
-        bolo: true
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-    res.status(200).json(pedidos)
-  } catch (error) {
-    res.status(500).json({ erro: error })
+    res.status(400).json(error)
   }
 })
 
-// Rota para funcionário atualizar o status de um pedido específico
-router.patch('/pedidos/:id/status', async (req, res) => {
+function validaSenha(senha: string) {
+
+  const mensa: string[] = []
+
+  // .length: retorna o tamanho da string (da senha)
+  if (senha.length < 8) {
+    mensa.push("Erro... senha deve possuir, no mínimo, 8 caracteres")
+  }
+
+  // contadores
+  let pequenas = 0
+  let grandes = 0
+  let numeros = 0
+  let simbolos = 0
+
+  // percorre as letras da variável senha
+  for (const letra of senha) {
+    // expressão regular
+    if ((/[a-z]/).test(letra)) {
+      pequenas++
+    }
+    else if ((/[A-Z]/).test(letra)) {
+      grandes++
+    }
+    else if ((/[0-9]/).test(letra)) {
+      numeros++
+    } else {
+      simbolos++
+    }
+  }
+
+  if (pequenas == 0) {
+    mensa.push("Erro... senha deve possuir letra(s) minúscula(s)")
+  }
+
+  if (grandes == 0) {
+    mensa.push("Erro... senha deve possuir letra(s) maiúscula(s)")
+  }
+
+  if (numeros == 0) {
+    mensa.push("Erro... senha deve possuir número(s)")
+  }
+
+  if (simbolos == 0) {
+    mensa.push("Erro... senha deve possuir símbolo(s)")
+  }
+
+  return mensa
+}
+
+router.post("/", async (req, res) => {
+
+  const valida = funcionarioSchema.safeParse(req.body)
+  if (!valida.success) {
+    res.status(400).json({ erro: valida.error })
+    return
+  }
+
+  const erros = validaSenha(valida.data.senha)
+  if (erros.length > 0) {
+    res.status(400).json({ erro: erros.join("; ") })
+    return
+  }
+
+  const salt = bcrypt.genSaltSync(12)
+  const hash = bcrypt.hashSync(valida.data.senha, salt)
+ 
+  const { nome, email } = valida.data
+
+  try {
+    const funcionario = await prisma.funcionario.create({
+      data: { nome, email, senha: hash }
+    })
+    res.status(201).json(funcionario)
+  } catch (error) {
+    res.status(400).json(error)
+  }
+})
+
+router.get("/:id", async (req, res) => {
   const { id } = req.params
-  const { status } = req.body
-
-  // Valida se o status enviado é um valor válido do Enum
-  if (!Object.values(StatusPedido).includes(status)) {
-    return res.status(400).json({ erro: "Status inválido" })
-  }
-
   try {
-    const pedidoAtualizado = await prisma.pedido.update({
-      where: { id: Number(id) },
-      data: { status }
+    const funcionario = await prisma.funcionario.findUnique({
+      where: { id }
     })
-    res.status(200).json(pedidoAtualizado)
+    res.status(200).json(funcionario)
   } catch (error) {
-    res.status(404).json({ erro: "Pedido não encontrado" })
+    res.status(400).json(error)
   }
-})
-
-// Rota para funcionário listar todos os usuários cadastrados
-router.get('/usuarios', async (req, res) => {
-    try {
-        const usuarios = await prisma.usuario.findMany({
-            select: {
-                id: true,
-                nome: true,
-                email: true,
-                tipo: true,
-                createdAt: true,
-            }
-        })
-        res.status(200).json(usuarios)
-    } catch (error) {
-        res.status(500).json({ erro: error })
-    }
 })
 
 export default router

@@ -9,42 +9,36 @@ const router = Router()
 router.post("/", async (req, res) => {
   const { email, senha } = req.body
 
-  // em termos de segurança, o recomendado é exibir uma mensagem padrão
-  // a fim de evitar de dar "dicas" sobre o processo de login para hackers
   const mensaPadrao = "Login ou senha incorretos"
 
   if (!email || !senha) {
-    // res.status(400).json({ erro: "Informe e-mail e senha do usuário" })
     res.status(400).json({ erro: mensaPadrao })
     return
   }
 
   try {
-    const cliente = await prisma.cliente.findFirst({
+    const funcionario = await prisma.funcionario.findFirst({
       where: { email }
     })
 
-    if (cliente == null) {
-      // res.status(400).json({ erro: "E-mail inválido" })
+    if (funcionario == null) {
       res.status(400).json({ erro: mensaPadrao })
       return
     }
 
-    // se o e-mail existe, faz-se a comparação dos hashs
-    if (bcrypt.compareSync(senha, cliente.senha)) {
-      // se confere, gera e retorna o token
+    if (bcrypt.compareSync(senha, funcionario.senha)) {
       const token = jwt.sign({
-        clienteLogadoId: cliente.id,
-        clienteLogadoNome: cliente.nome
+        funcionarioLogadoId: funcionario.id,
+        funcionarioLogadoNome: funcionario.nome
       },
         process.env.JWT_KEY as string,
         { expiresIn: "1h" }
       )
 
       res.status(200).json({
-        id: cliente.id,
-        nome: cliente.nome,
-        email: cliente.email,
+        id: funcionario.id,
+        nome: funcionario.nome,
+        email: funcionario.email,
         token
       })
     } else {
