@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+model Categoria {
+  id    Int     @id @default(autoincrement())
+  nome  String  @db.VarChar(30)
+  bolos Bolo[]
+  @@map("categorias")
+}
+
+model Bolo {
+  id           Int      @id @default(autoincrement())
+  nome         String   @db.VarChar(50)
+  preco        Decimal  @db.Decimal(10, 2)
+  foto         String
+  ingredientes String   @db.VarChar(255)
+  destaque     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  categoria    Categoria @relation(fields: [categoriaId], references: [id])
+  categoriaId  Int
+  pedidos      Pedido[]
+  @@map("bolos")
+}
+
+model Usuario {
+  id        String      @id @default(uuid()) @db.VarChar(36)
+  nome      String      @db.VarChar(60)
+  email     String      @unique @db.VarChar(40)
+  senha     String      @db.VarChar(60)
+  tipo      TipoUsuario @default(CLIENTE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  pedidos   Pedido[]
+  @@map("usuarios")
+}
+
+model Pedido {
+  id          Int          @id @default(autoincrement())
+  usuario     Usuario      @relation(fields: [usuarioId], references: [id])
+  usuarioId   String       @db.VarChar(36)
+  bolo        Bolo         @relation(fields: [boloId], references: [id])
+  boloId      Int
+  quantidade  Int          @default(1)
+  valor_total Decimal      @db.Decimal(10, 2)
+  observacoes String?      @db.VarChar(255)
+  status      StatusPedido @default(PENDENTE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  @@map("pedidos")
+}
+
+enum TipoUsuario {
+  CLIENTE
+  FUNCIONARIO
+}
+
+enum StatusPedido {
+  PENDENTE
+  EM_PREPARO
+  CONCLUIDO
+  ENTREGUE
+  CANCELADO
+}
