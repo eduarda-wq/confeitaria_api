@@ -9,11 +9,8 @@ const router = Router()
 router.post("/", async (req, res) => {
   const { email, senha } = req.body
 
-  const mensaPadrao = "Login ou senha incorretos"
-
   if (!email || !senha) {
-    res.status(400).json({ erro: mensaPadrao })
-    return
+    return res.status(400).json({ erro: "Informe e-mail e senha do usuário" })
   }
 
   try {
@@ -21,31 +18,33 @@ router.post("/", async (req, res) => {
       where: { email }
     })
 
-    if (funcionario == null) {
-      res.status(400).json({ erro: mensaPadrao })
-      return
+    if (!funcionario) {
+      return res.status(400).json({ erro: "E-mail não encontrado" })
     }
 
-    if (bcrypt.compareSync(senha, funcionario.senha)) {
-      const token = jwt.sign({
-        funcionarioLogadoId: funcionario.id,
-        funcionarioLogadoNome: funcionario.nome
-      },
-        process.env.JWT_KEY as string,
-        { expiresIn: "1h" }
-      )
+    const senhaCorreta = bcrypt.compareSync(senha, funcionario.senha)
 
-      res.status(200).json({
-        id: funcionario.id,
-        nome: funcionario.nome,
-        email: funcionario.email,
-        token
-      })
-    } else {
-      res.status(400).json({ erro: mensaPadrao })
+    if (!senhaCorreta) {
+      return res.status(400).json({ erro: "Senha incorreta" })
     }
+
+    const token = jwt.sign({
+      funcionarioLogadoId: funcionario.id,
+      funcionarioLogadoNome: funcionario.nome
+    },
+      process.env.JWT_KEY as string,
+      { expiresIn: "1h" }
+    )
+
+    res.status(200).json({
+      id: funcionario.id,
+      nome: funcionario.nome,
+      email: funcionario.email,
+      token
+    })
+
   } catch (error) {
-    res.status(400).json(error)
+    res.status(500).json({ erro: "Erro interno no servidor", detalhe: error })
   }
 })
 
