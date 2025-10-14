@@ -1,44 +1,48 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgres"
   url      = env("DATABASE_URL")
 }
 
+// O modelo 'Marca' foi refatorado para 'Categoria'
 model Categoria {
-  id     Int    @id @default(autoincrement())
-  nome   String @db.VarChar(30)
-  bolos  Bolo[]
+  id    Int    @id @default(autoincrement())
+  nome  String @db.VarChar(30)
+  bolos Bolo[] // Relação atualizada
+
   @@map("categorias")
 }
 
+// O modelo 'Carro' foi refatorado para 'Bolo'
 model Bolo {
-  id          Int       @id @default(autoincrement())
-  nome        String    @db.VarChar(50)
-  descricao   String    @db.VarChar(255)
+  id          Int      @id @default(autoincrement())
+  nome        String   @db.VarChar(60) // Substitui 'modelo'
+  descricao   String   @db.Text        // Substitui 'acessorios', agora não opcional e com mais espaço
+  preco       Decimal  @db.Decimal(10, 2)
+  peso        Int      // Novo campo, substitui 'ano' e 'km'
   foto        String
-  preco       Decimal   @db.Decimal(10, 2)
-  peso        Decimal   @db.Decimal(6, 3)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt()
-  destaque    Boolean   @default(true)
+  destaque    Boolean  @default(false) // Default alterado para false
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt()
+  ativo       Boolean  @default(true) // Campo mantido para soft-delete
+
+  // Relações atualizadas
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
   categoriaId Int
   pedidos     Pedido[]
   admin       Admin?    @relation(fields: [adminId], references: [id])
   adminId     String?   @db.VarChar(36)
-  ativo       Boolean   @default(true)
+
   @@map("bolos")
 }
 
+// Modelo 'Cliente' com relação a 'Pedido' atualizada
 model Cliente {
   id        String   @db.VarChar(36) @id @default(uuid())
   nome      String   @db.VarChar(60)
@@ -47,54 +51,47 @@ model Cliente {
   cidade    String   @db.VarChar(30)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  pedidos   Pedido[]
+  pedidos   Pedido[] // Relação atualizada de 'propostas' para 'pedidos'
+
   @@map("clientes")
 }
 
-model Funcionario {
-  id        String   @db.VarChar(36) @id @default(uuid())
-  nome      String   @db.VarChar(60)
-  email     String   @db.VarChar(40)
-  senha     String   @db.VarChar(60)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  pedidos   Pedido[]
-  @@map("funcionarios")
-}
-
+// O modelo 'Proposta' foi refatorado para 'Pedido'
 model Pedido {
-  id            Int          @id @default(autoincrement())
-  cliente       Cliente      @relation(fields: [clienteId], references: [id])
-  clienteId     String       @db.VarChar(36)
-  bolo          Bolo         @relation(fields: [boloId], references: [id])
-  boloId        Int
-  quantidade    Int
-  observacao    String?      @db.VarChar(255)
-  dataEntrega   DateTime
-  status        StatusPedido @default(PENDENTE)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id])
-  funcionarioId String?      @db.VarChar(36)
-  admin         Admin?       @relation(fields: [adminId], references: [id])
-  adminId       String?      @db.VarChar(36)
+  id          Int      @id @default(autoincrement())
+  observacoes String   @db.VarChar(255) // Substitui 'descricao'
+  status      String   @db.VarChar(30) @default("Recebido") // Substitui 'resposta', agora com status definido
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relações atualizadas
+  cliente     Cliente  @relation(fields: [clienteId], references: [id])
+  clienteId   String   @db.VarChar(36)
+  bolo        Bolo     @relation(fields: [boloId], references: [id])
+  boloId      Int
+  admin       Admin?   @relation(fields: [adminId], references: [id])
+  adminId     String?  @db.VarChar(36)
+
   @@map("pedidos")
 }
 
+// Modelo 'Admin' com relações atualizadas
 model Admin {
   id        String   @db.VarChar(36) @id @default(uuid())
   nome      String   @db.VarChar(60)
-  email     String   @db.VarChar(40)
+  email     String   @db.VarChar(40) @unique
   senha     String   @db.VarChar(60)
   nivel     Int      @db.SmallInt @default(2)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  bolos     Bolo[]
-  pedidos   Pedido[]
+  bolos     Bolo[]   // Relação atualizada
+  pedidos   Pedido[] // Relação atualizada
   logs      Log[]
+
   @@map("admins")
 }
 
+// Modelo 'Log' mantido como está
 model Log {
   id          Int      @id @default(autoincrement())
   admin       Admin    @relation(fields: [adminId], references: [id])
@@ -103,13 +100,8 @@ model Log {
   complemento String   @db.VarChar(200)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   @@map("logs")
 }
 
-enum StatusPedido {
-  PENDENTE
-  EM_PRODUCAO
-  CONCLUIDO
-  ENTREGUE
-  CANCELADO
-}
+// O 'enum Combustiveis' foi removido por não ser mais necessário.

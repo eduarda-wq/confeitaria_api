@@ -1,137 +1,160 @@
-import { PrismaClient, StatusPedido } from "@prisma/client"
-import { Router } from "express"
-import { z } from 'zod'
-import nodemailer from 'nodemailer'
+import { PrismaClient } from "@prisma/client";
+import { Router } from "express";
+import { z } from 'zod';
+import nodemailer from 'nodemailer';
 
-const prisma = new PrismaClient()
-const router = Router()
+const prisma = new PrismaClient();
+const router = Router();
 
+// Schema de validação Zod para um novo Pedido
 const pedidoSchema = z.object({
   clienteId: z.string().uuid(),
-  boloId: z.number(),
-  quantidade: z.number().min(1),
-  observacao: z.string().optional(),
-  dataEntrega: z.string().transform((str) => new Date(str)),
-})
-
-async function enviaEmail(nome: string, email: string,
-  boloNome: string, status: string) {
-
-// Create a test account or replace with real credentials.
-const transporter = nodemailer.createTransport({
-  host: "sandbox.smtp.mailtrap.io",
-  port: 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.MAILTRAP_EMAIL,
-    pass: process.env.MAILTRAP_SENHA,
-  },
+  boloId: z.number().int(),
+  observacoes: z.string().min(5,
+    { message: "As observações devem ter, no mínimo, 5 caracteres" }).optional(),
 });
 
-  const info = await transporter.sendMail({
-    from: 'seuemail@gmail.com', // sender address
-    to: email, // list of receivers
-    subject: "Re: Pedido Loja de Bolos", // Subject line
-    text: `Seu pedido do bolo ${boloNome} está ${status}`, // plain text body
-    html: `<h3>Estimado Cliente: ${nome}</h3>
-           <h3>Seu pedido do bolo ${boloNome} teve seu status alterado para: ${status}</h3>
-           <p>Muito obrigado pela sua preferência!</p>
-           <p>Loja de Bolos</p>`
+/**
+ * Função para enviar um e-mail de notificação sobre o status de um pedido.
+ */
+async function enviarEmailStatus(nomeCliente: string, emailCliente: string,
+  nomeBolo: string, observacoes: string, status: string) {
+
+  const transporter = nodemailer.createTransport({
+    host: "sandbox.smtp.mailtrap.io",
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.MAILTRAP_EMAIL,
+      pass: process.env.MAILTRAP_SENHA,
+    },
   });
 
-  console.log("Message sent: %s", info.messageId);
+  const info = await transporter.sendMail({
+    from: '"Confeitaria Doce Sabor" <nao-responda@docesabor.com>',
+    to: emailCliente,
+    subject: `Atualização do seu Pedido: ${status}`, // Assunto dinâmico
+    html: `
+      <h3>Olá, ${nomeCliente}!</h3>
+      <h4>O status do seu pedido foi atualizado: <strong>${status}</strong></h4>
+      <p><strong>Detalhes do Pedido:</strong></p>
+      <ul>
+        <li><strong>Bolo:</strong> ${nomeBolo}</li>
+        <li><strong>Suas Observações:</strong> ${observacoes || 'Nenhuma observação.'}</li>
+      </ul>
+      <p>Agradecemos a sua preferência!</p>
+      <p>Atenciosamente,<br>Equipe Doce Sabor</p>
+    `
+  });
+
+  console.log("E-mail de status enviado: %s", info.messageId);
 }
 
+// Rota para listar todos os pedidos (para o admin)
 router.get("/", async (req, res) => {
   try {
     const pedidos = await prisma.pedido.findMany({
       include: {
         cliente: true,
         bolo: {
-          include: {
-            categoria: true
-          }
-        },
-        funcionario: true
+          include: { categoria: true }
+        }
       },
-      orderBy: { id: 'desc'}
-    })
-    res.status(200).json(pedidos)
+      orderBy: { id: 'desc' }
+    });
+    res.status(200).json(pedidos);
   } catch (error) {
-    res.status(400).json(error)
+    res.status(400).json(error);
   }
-})
+});
 
+// Rota para criar um novo pedido
 router.post("/", async (req, res) => {
-
-  const valida = pedidoSchema.safeParse(req.body)
+  const valida = pedidoSchema.safeParse(req.body);
   if (!valida.success) {
-    res.status(400).json({ erro: valida.error })
-    return
-  }  
-  const { clienteId, boloId, quantidade, observacao, dataEntrega } = valida.data
+    res.status(400).json({ erro: valida.error });
+    return;
+  }
+  const { clienteId, boloId, observacoes = "" } = valida.data;
 
   try {
     const pedido = await prisma.pedido.create({
-      data: { clienteId, boloId, quantidade, observacao, dataEntrega }
-    })
-    res.status(201).json(pedido)
+      data: { clienteId, boloId, observacoes }
+    });
+    res.status(201).json(pedido);
   } catch (error) {
-    res.status(400).json(error)
+    res.status(400).json(error);
   }
-})
+});
 
-router.get("/:clienteId", async (req, res) => {
-  const { clienteId } = req.params
+// Rota para listar os pedidos de um cliente específico
+router.get("/cliente/:clienteId", async (req, res) => {
+  const { clienteId } = req.params;
   try {
     const pedidos = await prisma.pedido.findMany({
       where: { clienteId },
       include: {
         bolo: {
-          include: {
-            categoria: true
-          }
+          include: { categoria: true }
         }
       }
-    })
-    res.status(200).json(pedidos)
+    });
+    res.status(200).json(pedidos);
   } catch (error) {
-    res.status(400).json(error)
+    res.status(400).json(error);
   }
-})
+});
 
+// Rota para atualizar o status de um pedido
 router.patch("/:id", async (req, res) => {
-  const { id } = req.params
-  const { status } = req.body
+  const { id } = req.params;
+  const { status } = req.body;
 
-  if (!status || !Object.values(StatusPedido).includes(status)) {
-    res.status(400).json({ "erro": "Informe um status válido para o pedido" })
-    return
+  if (!status) {
+    res.status(400).json({ "erro": "Informe o novo status do pedido" });
+    return;
   }
 
   try {
-    const pedido = await prisma.pedido.update({
+    const pedidoAtualizado = await prisma.pedido.update({
       where: { id: Number(id) },
       data: { status }
-    })
+    });
 
-    const dados = await prisma.pedido.findUnique({
+    // Busca os dados completos para enviar no e-mail
+    const dadosParaEmail = await prisma.pedido.findUnique({
       where: { id: Number(id) },
-      include: {
-        cliente: true,
-        bolo: true
-      }
-    })
+      include: { cliente: true, bolo: true }
+    });
 
-    enviaEmail(dados?.cliente.nome as string,
-      dados?.cliente.email as string,
-      dados?.bolo.nome as string,
-      status)
+    if (dadosParaEmail) {
+      enviarEmailStatus(
+        dadosParaEmail.cliente.nome,
+        dadosParaEmail.cliente.email,
+        dadosParaEmail.bolo.nome,
+        dadosParaEmail.observacoes,
+        status
+      );
+    }
 
-    res.status(200).json(pedido)
+    res.status(200).json(pedidoAtualizado);
   } catch (error) {
-    res.status(400).json(error)
+    res.status(400).json(error);
   }
-})
+});
 
-export default router
+// Rota para excluir/cancelar um pedido
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const pedido = await prisma.pedido.delete({
+      where: { id: Number(id) }
+    });
+    res.status(200).json(pedido);
+  } catch (error) {
+    res.status(400).json(error);
+  }
+});
+
+
+export default router;

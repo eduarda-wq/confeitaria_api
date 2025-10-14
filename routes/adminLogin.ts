@@ -9,8 +9,14 @@ const router = Router()
 router.post("/", async (req, res) => {
   const { email, senha } = req.body
 
+  // em termos de segurança, o recomendado é exibir uma mensagem padrão
+  // a fim de evitar de dar "dicas" sobre o processo de login para hackers
+  const mensaPadrao = "Login ou senha incorretos"
+
   if (!email || !senha) {
-    return res.status(400).json({ erro: "Informe e-mail e senha do usuário" })
+    // res.status(400).json({ erro: "Informe e-mail e senha do usuário" })
+    res.status(400).json({ erro: mensaPadrao })
+    return
   }
 
   try {
@@ -18,43 +24,44 @@ router.post("/", async (req, res) => {
       where: { email }
     })
 
-    if (!admin) {
-      return res.status(400).json({ erro: "E-mail não encontrado" })
+    if (admin == null) {
+      // res.status(400).json({ erro: "E-mail inválido" })
+      res.status(400).json({ erro: mensaPadrao })
+      return
     }
 
-    const senhaCorreta = bcrypt.compareSync(senha, admin.senha)
+    // se o e-mail existe, faz-se a comparação dos hashs
+    if (bcrypt.compareSync(senha, admin.senha)) {
+      // se confere, gera e retorna o token
+      const token = jwt.sign({
+        adminLogadoId: admin.id,
+        adminLogadoNome: admin.nome,
+        adminLogadoNivel: admin.nivel
+      },
+        process.env.JWT_KEY as string,
+        { expiresIn: "1h" }
+      )
 
-    if (!senhaCorreta) {
+      res.status(200).json({
+        id: admin.id,
+        nome: admin.nome,
+        email: admin.email,
+        nivel: admin.nivel,
+        token
+      })
+    } else {
       const descricao = "Tentativa de acesso ao sistema"
-      const complemento = `Senha incorreta para o Admin: ${admin.id} - ${admin.nome}`
+      const complemento = "Admin: " + admin.id + " - " + admin.nome
 
-      await prisma.log.create({
+      // registra um log de erro de senha
+      const log = await prisma.log.create({
         data: { descricao, complemento, adminId: admin.id }
       })
 
-      return res.status(400).json({ erro: "Senha incorreta" })
+      res.status(400).json({ erro: mensaPadrao })
     }
-
-    // Se a senha estiver correta, gera token
-    const token = jwt.sign({
-      adminLogadoId: admin.id,
-      adminLogadoNome: admin.nome,
-      adminLogadoNivel: admin.nivel
-    },
-      process.env.JWT_KEY as string,
-      { expiresIn: "1h" }
-    )
-
-    res.status(200).json({
-      id: admin.id,
-      nome: admin.nome,
-      email: admin.email,
-      nivel: admin.nivel,
-      token
-    })
-
   } catch (error) {
-    res.status(500).json({ erro: "Erro interno no servidor", detalhe: error })
+    res.status(400).json(error)
   }
 })
 
