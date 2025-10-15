@@ -54,9 +54,7 @@ async function enviarEmailStatus(nomeCliente: string, emailCliente: string,
 // Rota para listar todos os pedidos (para o admin)
 router.get("/", async (req, res) => {
 
-  if (req.userLogadoNivel !== 2 && req.userLogadoNivel !== 5) {
-      return res.status(403).json({ erro: "Você não tem permissão para visualizar todos os pedidos." });
-  }
+ 
 
   try {
     const pedidos = await prisma.pedido.findMany({
