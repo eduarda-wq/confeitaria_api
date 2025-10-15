@@ -10,24 +10,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// O modelo 'Marca' foi refatorado para 'Categoria'
+
 model Categoria {
   id    Int    @id @default(autoincrement())
   nome  String @db.VarChar(30)
-  bolos Bolo[] // Relação atualizada
+  bolos Bolo[] 
 
   @@map("categorias")
 }
 
-// O modelo 'Carro' foi refatorado para 'Bolo'
+
 model Bolo {
   id          Int      @id @default(autoincrement())
-  nome        String   @db.VarChar(60) // Substitui 'modelo'
-  descricao   String   @db.Text        // Substitui 'acessorios', agora não opcional e com mais espaço
+  nome        String   @db.VarChar(60) 
+  descricao   String   @db.Text        
   preco       Decimal  @db.Decimal(10, 2)
-  peso        Int      // Novo campo, substitui 'ano' e 'km'
+  peso        Int     
   foto        String
-  destaque    Boolean  @default(false) // Default alterado para false
+  destaque    Boolean  @default(false) 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt()
   ativo       Boolean  @default(true) // Campo mantido para soft-delete
