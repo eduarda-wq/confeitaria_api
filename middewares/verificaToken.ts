@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken"
 import { Request, Response, NextFunction } from 'express'
 
 type TokenType = {
-  userLogadoId: number
+  userLogadoId: string
   userLogadoNome: string
   userLogadoNivel: number
 }
@@ -13,6 +13,7 @@ declare global {
     interface Request {
       userLogadoId?: string
       userLogadoNome?: string
+      userLogadoNivel?: number
     }
   }
 }

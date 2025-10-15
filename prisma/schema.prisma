@@ -59,8 +59,9 @@ model Cliente {
 // O modelo 'Proposta' foi refatorado para 'Pedido'
 model Pedido {
   id          Int      @id @default(autoincrement())
-  observacoes String   @db.VarChar(255) // Substitui 'descricao'
-  status      String   @db.VarChar(30) @default("Recebido") // Substitui 'resposta', agora com status definido
+  observacoes String   @db.VarChar(255)
+  // ATUALIZADO: Usando o novo Enum
+  status      StatusPedido @default(PENDENTE) 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -74,7 +75,6 @@ model Pedido {
 
   @@map("pedidos")
 }
-
 // Modelo 'Admin' com relações atualizadas
 model Admin {
   id        String   @db.VarChar(36) @id @default(uuid())
@@ -105,3 +105,12 @@ model Log {
 }
 
 // O 'enum Combustiveis' foi removido por não ser mais necessário.
+enum StatusPedido {
+  RECEBIDO
+  PENDENTE
+  EM_ANDAMENTO
+  FEITO
+  ENVIADO
+  CLIENTE_RECEBEU
+  CANCELADO
+}
