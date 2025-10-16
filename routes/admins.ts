@@ -81,6 +81,11 @@ function validaSenha(senha: string) {
 
 router.post("/", verificaToken, async (req, res) => {
 
+  if (req.userLogadoNivel !== 5) {
+    res.status(403).json({ erro: "Somente o Administrador Principal pode cadastrar novos usuários administradores/funcionários." });
+    return;
+  }
+
   const valida = adminSchema.safeParse(req.body)
   if (!valida.success) {
     res.status(400).json({ erro: valida.error })
