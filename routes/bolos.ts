@@ -50,6 +50,22 @@ router.get("/destaques", async (req, res) => {
   }
 });
 
+
+router.get("/recentes", async (req, res) => {
+  try {
+    const bolos = await prisma.bolo.findMany({
+      where: { ativo: true },
+      include: { categoria: true },
+      orderBy: { createdAt: 'desc' }, // Ordena pelos mais recentes primeiro
+      take: 10, // Limita o resultado a 10 registos
+    });
+    res.status(200).json(bolos);
+  } catch (error) {
+    console.error("Erro ao buscar bolos recentes:", error);
+    res.status(500).json({ erro: "Ocorreu um erro interno no servidor." });
+  }
+});
+
 // Rota para obter um bolo específico pelo ID
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
